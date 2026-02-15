@@ -126,7 +126,7 @@ export function LocationSelector({ onSelect }: LocationSelectorProps) {
       loc.state.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Animated background canvas
+  // Animated background canvas with falling rocks
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -143,55 +143,145 @@ export function LocationSelector({ onSelect }: LocationSelectorProps) {
     resize()
     window.addEventListener("resize", resize)
 
+    // Initialize falling rocks with persistent structure
+    interface RockData {
+      x: number
+      y: number
+      z: number
+      size: number
+      speed: number
+      rotationX: number
+      rotationY: number
+      rotationZ: number
+      rotationSpeedX: number
+      rotationSpeedY: number
+      rotationSpeedZ: number
+      color: string
+      opacity: number
+    }
+
+    const rocks: RockData[] = []
+    
+    // Create rocks
+    for (let i = 0; i < 30; i++) {
+      rocks.push({
+        x: Math.random() * window.innerWidth,
+        y: -50 - Math.random() * 800,
+        z: Math.random() * 800 + 200,
+        size: Math.random() * 30 + 15,
+        speed: Math.random() * 2 + 1.5,
+        rotationX: Math.random() * Math.PI * 2,
+        rotationY: Math.random() * Math.PI * 2,
+        rotationZ: Math.random() * Math.PI * 2,
+        rotationSpeedX: (Math.random() - 0.5) * 0.05,
+        rotationSpeedY: (Math.random() - 0.5) * 0.05,
+        rotationSpeedZ: (Math.random() - 0.5) * 0.05,
+        color: ['rgba(90, 80, 70', 'rgba(100, 90, 80', 'rgba(70, 70, 70', 'rgba(85, 75, 65', 'rgba(95, 85, 75'][
+          Math.floor(Math.random() * 5)
+        ],
+        opacity: Math.random() * 0.3 + 0.5
+      })
+    }
+
     const particles: { x: number; y: number; vx: number; vy: number; r: number; o: number }[] = []
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 40; i++) {
       particles.push({
         x: Math.random() * window.innerWidth,
         y: Math.random() * window.innerHeight,
         vx: (Math.random() - 0.5) * 0.3,
         vy: (Math.random() - 0.5) * 0.3,
         r: Math.random() * 1.5 + 0.5,
-        o: Math.random() * 0.3 + 0.1,
+        o: Math.random() * 0.2 + 0.05,
       })
+    }
+
+    const updateRock = (rock: RockData) => {
+      rock.y += rock.speed * (1000 / rock.z)
+      rock.rotationX += rock.rotationSpeedX
+      rock.rotationY += rock.rotationSpeedY
+      rock.rotationZ += rock.rotationSpeedZ
+
+      // Reset rock to top when it goes off screen
+      if (rock.y > window.innerHeight + 100) {
+        rock.y = -50 - Math.random() * 200
+        rock.x = Math.random() * window.innerWidth
+        rock.z = Math.random() * 800 + 200
+      }
+    }
+
+    const drawRock = (rock: RockData, ctx: CanvasRenderingContext2D) => {
+      const scale = 1000 / rock.z
+      const screenX = rock.x
+      const screenY = rock.y
+      const screenSize = rock.size * scale
+
+      ctx.save()
+      ctx.translate(screenX, screenY)
+
+      // Create 3D rock shape with multiple faces
+      const faces = 6
+      ctx.globalAlpha = rock.opacity * (1 - rock.z / 1200)
+
+      for (let i = 0; i < faces; i++) {
+        const angle = (Math.PI * 2 * i) / faces + rock.rotationY
+        const nextAngle = (Math.PI * 2 * (i + 1)) / faces + rock.rotationY
+        
+        const brightness = Math.cos(angle + rock.rotationX) * 0.3 + 0.7
+        ctx.fillStyle = `${rock.color}, ${brightness})`
+        
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(
+          Math.cos(angle) * screenSize,
+          Math.sin(angle) * screenSize * 0.7
+        )
+        ctx.lineTo(
+          Math.cos(nextAngle) * screenSize,
+          Math.sin(nextAngle) * screenSize * 0.7
+        )
+        ctx.closePath()
+        ctx.fill()
+
+        // Add edge shadows
+        ctx.strokeStyle = `rgba(0, 0, 0, ${0.3 * brightness})`
+        ctx.lineWidth = 1
+        ctx.stroke()
+      }
+
+      ctx.restore()
     }
 
     const draw = () => {
       const w = window.innerWidth
       const h = window.innerHeight
-      timeRef.current += 0.005
 
       ctx.clearRect(0, 0, w, h)
 
-      // Draw topographic contour lines
-      ctx.strokeStyle = "hsla(215, 20%, 20%, 0.08)"
-      ctx.lineWidth = 0.5
-      for (let i = 0; i < 15; i++) {
-        const cx = w * 0.3 + Math.sin(timeRef.current + i * 0.5) * 30
-        const cy = h * 0.5 + Math.cos(timeRef.current * 0.7 + i * 0.3) * 20
-        const rx = (w * 0.04) * (i + 1)
-        const ry = (h * 0.03) * (i + 1)
-        ctx.beginPath()
-        ctx.ellipse(cx, cy, rx, ry, -0.15, 0, Math.PI * 2)
-        ctx.stroke()
-      }
+      // Sort and draw falling rocks (by z-index for proper depth)
+      rocks.sort((a, b) => b.z - a.z)
+      
+      rocks.forEach((rock) => {
+        updateRock(rock)
+        drawRock(rock, ctx)
+      })
 
-      // Draw grid
-      ctx.strokeStyle = "hsla(215, 20%, 18%, 0.05)"
+      // Draw subtle background grid
+      ctx.strokeStyle = "hsla(215, 20%, 18%, 0.03)"
       ctx.lineWidth = 0.5
-      for (let x = 0; x < w; x += 60) {
+      for (let x = 0; x < w; x += 80) {
         ctx.beginPath()
         ctx.moveTo(x, 0)
         ctx.lineTo(x, h)
         ctx.stroke()
       }
-      for (let y = 0; y < h; y += 60) {
+      for (let y = 0; y < h; y += 80) {
         ctx.beginPath()
         ctx.moveTo(0, y)
         ctx.lineTo(w, y)
         ctx.stroke()
       }
 
-      // Particles
+      // Particles (dust effect)
       particles.forEach((p) => {
         p.x += p.vx
         p.y += p.vy
@@ -200,31 +290,15 @@ export function LocationSelector({ onSelect }: LocationSelectorProps) {
         if (p.y < 0) p.y = h
         if (p.y > h) p.y = 0
 
-        ctx.fillStyle = `hsla(38, 92%, 50%, ${p.o})`
+        ctx.fillStyle = `hsla(30, 40%, 50%, ${p.o})`
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
         ctx.fill()
       })
 
-      // Connect nearby particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 120) {
-            ctx.strokeStyle = `hsla(38, 92%, 50%, ${0.03 * (1 - dist / 120)})`
-            ctx.lineWidth = 0.5
-            ctx.beginPath()
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.stroke()
-          }
-        }
-      }
-
       animationRef.current = requestAnimationFrame(draw)
     }
+    
     draw()
 
     return () => {
@@ -249,8 +323,11 @@ export function LocationSelector({ onSelect }: LocationSelectorProps) {
 
   return (
     <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-background">
-      {/* Animated Background */}
+      {/* Animated 3D Falling Rocks Background */}
       <canvas ref={canvasRef} className="absolute inset-0" />
+      
+      {/* Dark gradient overlay for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/60 to-background/70" />
 
       {/* Main Content */}
       <div className="relative z-10 flex w-full max-w-2xl flex-col items-center gap-8 px-6">
