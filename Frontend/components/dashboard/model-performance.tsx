@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { BrainCircuit, TrendingUp, Layers, BarChart3 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { apiClient } from "@/lib/api-client"
 import {
   Area,
   AreaChart,
@@ -100,6 +101,43 @@ const featureColors = [
 export function ModelPerformance() {
   const [models, setModels] = useState(INITIAL_MODELS)
   const [selectedModel, setSelectedModel] = useState<string>("MDL-01")
+  const [realMetrics, setRealMetrics] = useState<any>(null)
+  const [featureImportance, setFeatureImportance] = useState<any>(null)
+
+  // Fetch real model metrics from backend
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const metrics = await apiClient.getModelMetrics()
+        const features = await apiClient.getFeatureImportance()
+        
+        setRealMetrics(metrics)
+        setFeatureImportance(features.features)
+        
+        // Update model with real data
+        setModels((prev) => {
+          const updated = [...prev]
+          // Update first model with real metrics
+          updated[0] = {
+            ...updated[0],
+            accuracy: metrics.accuracy,
+            f1Score: metrics.f1_score / 100, // Convert to decimal
+            featureImportance: features.features.slice(0, 5).map((f: any) => ({
+              name: f.name,
+              value: f.importance / 100
+            }))
+          }
+          return updated
+        })
+      } catch (error) {
+        console.error('Failed to fetch model metrics:', error)
+      }
+    }
+
+    fetchMetrics()
+    const interval = setInterval(fetchMetrics, 10000) // Refresh every 10s
+    return () => clearInterval(interval)
+  }, [])
 
   // Simulate training progress for MDL-02
   useEffect(() => {

@@ -239,31 +239,35 @@ This is an automated alert. You will receive updates every 15 seconds.
 For emergencies: +1-800-ROCKFALL | emergency@rockguard.ai
     `
 
-    // Send emails using Resend
+    // Send emails using Nodemailer
     console.log('=== SENDING EVACUATION ALERT EMAIL ===')
     console.log('To:', emails.join(', '))
     console.log('Subject:', subject)
     console.log('Time:', new Date().toLocaleString())
     console.log('==============================')
 
-    // Send with Resend
-    const { Resend } = require('resend')
-    const resend = new Resend(process.env.RESEND_API_KEY)
+    // Send with Nodemailer + Gmail
+    const nodemailer = require('nodemailer')
     
-    const { data, error } = await resend.emails.send({
-      from: 'RockGuard AI <onboarding@resend.dev>',
-      to: emails,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    })
+
+    console.log(`📧 Sending to: ${emails.join(', ')}`)
+    
+    const info = await transporter.sendMail({
+      from: `"RockGuard AI Alert System" <${process.env.GMAIL_USER}>`,
+      to: emails.join(', '),
       subject: subject,
       html: htmlContent,
       text: textContent,
     })
 
-    if (error) {
-      console.error('Resend error:', error)
-      throw new Error(error.message || 'Failed to send email')
-    }
-
-    console.log('✅ Email sent successfully! ID:', data?.id)
+    console.log('✅ Email sent successfully! ID:', info.messageId)
 
     return NextResponse.json({
       success: true,

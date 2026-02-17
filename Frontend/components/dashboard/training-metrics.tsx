@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { Activity, ArrowDown, ArrowUp, Minus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { apiClient } from "@/lib/api-client"
 import {
   Area,
   AreaChart,
@@ -11,6 +12,9 @@ import {
   XAxis,
   YAxis,
   Tooltip as RechartsTooltip,
+  Line,
+  LineChart,
+  Legend,
 } from "recharts"
 
 interface MetricConfig {
